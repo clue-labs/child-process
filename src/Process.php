@@ -82,11 +82,16 @@ class Process extends EventEmitter
             throw new \RuntimeException('Process is already running');
         }
 
+        $unix = (DIRECTORY_SEPARATOR === '/');
+        $stdin  = stream_socket_pair($unix ? STREAM_PF_UNIX : STREAM_PF_INET, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+        $stdout = stream_socket_pair($unix ? STREAM_PF_UNIX : STREAM_PF_INET, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+        $stderr = stream_socket_pair($unix ? STREAM_PF_UNIX : STREAM_PF_INET, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+
         $cmd = $this->cmd;
         $fdSpec = array(
-            array('pipe', 'r'), // stdin
-            array('pipe', 'w'), // stdout
-            array('pipe', 'w'), // stderr
+            $stdin[0], // stdin
+            $stdout[0], // stdout
+            $stderr[0], // stderr
         );
 
         // Read exit code through fourth pipe to work around --enable-sigchild
@@ -100,6 +105,10 @@ class Process extends EventEmitter
         if (!is_resource($this->process)) {
             throw new \RuntimeException('Unable to launch a new process.');
         }
+
+        $this->pipes[0] = $stdin[1];
+        $this->pipes[1] = $stdout[1];
+        $this->pipes[2] = $stderr[1];
 
         $this->stdin  = new Stream($this->pipes[0], $loop);
         $this->stdin->pause();
